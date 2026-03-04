@@ -53,6 +53,8 @@ import { AnimatedCountList } from "./tool-count-summary"
 import { ToolStatusTitle } from "./tool-status-title"
 import { animate } from "motion"
 
+const CHAT_MODEL_LABEL = "Gambit AI"
+
 function ShellSubmessage(props: { text: string; animate?: boolean }) {
   let widthRef: HTMLSpanElement | undefined
   let valueRef: HTMLSpanElement | undefined
@@ -836,13 +838,7 @@ export function UserMessageDisplay(props: {
 
   const agents = createMemo(() => (props.parts?.filter((p) => p.type === "agent") as AgentPart[]) ?? [])
 
-  const model = createMemo(() => {
-    const providerID = props.message.model?.providerID
-    const modelID = props.message.model?.modelID
-    if (!providerID || !modelID) return ""
-    const match = data.store.provider?.all?.find((p) => p.id === providerID)
-    return match?.models?.[modelID]?.name ?? modelID
-  })
+  const model = () => CHAT_MODEL_LABEL
 
   const stamp = createMemo(() => {
     const created = props.message.time?.created
@@ -1194,12 +1190,7 @@ PART_MAPPING["text"] = function TextPartDisplay(props) {
       props.message.role === "assistant" && (props.message as AssistantMessage).error?.name === "MessageAbortedError",
   )
 
-  const model = createMemo(() => {
-    if (props.message.role !== "assistant") return ""
-    const message = props.message as AssistantMessage
-    const match = data.store.provider?.all?.find((p) => p.id === message.providerID)
-    return match?.models?.[message.modelID]?.name ?? message.modelID
-  })
+  const model = () => CHAT_MODEL_LABEL
 
   const duration = createMemo(() => {
     if (props.message.role !== "assistant") return ""

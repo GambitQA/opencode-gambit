@@ -57,6 +57,7 @@ export type PromptRef = {
 
 const PLACEHOLDERS = ["Fix a TODO in the codebase", "What is the tech stack of this project?", "Fix broken tests"]
 const SHELL_PLACEHOLDERS = ["ls -la", "git status", "pwd"]
+const CHAT_MODEL_LABEL = "Gambit AI"
 
 export function Prompt(props: PromptProps) {
   let input: TextareaRenderable
@@ -1003,7 +1004,7 @@ export function Prompt(props: PromptProps) {
               <Show when={store.mode === "normal"}>
                 <box flexDirection="row" gap={1}>
                   <text flexShrink={0} fg={keybind.leader ? theme.textMuted : theme.text}>
-                    {local.model.parsed().model}
+                    {CHAT_MODEL_LABEL}
                   </text>
                   <text fg={theme.textMuted}>{local.model.parsed().provider}</text>
                   <Show when={showVariant()}>
