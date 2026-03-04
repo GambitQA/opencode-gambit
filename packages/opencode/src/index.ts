@@ -33,14 +33,6 @@ import path from "path"
 import { Global } from "./global"
 import { JsonMigration } from "./storage/json-migration"
 import { Database } from "./storage/db"
-import { existsSync } from "fs"
-
-const envCwd = process.env.OPENCODE_CWD
-
-if (envCwd && existsSync(envCwd)) {
-  process.chdir(envCwd)
-  process.env.PWD = process.cwd()
-}
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {

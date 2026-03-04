@@ -1,8 +1,6 @@
 ### Making `opencode` run this local fork
 
-If you want the `opencode` command in your shell to launch this checkout's dev build, replace the installed binary with a small wrapper script.
-
-This repo includes support for `OPENCODE_CWD` in `packages/opencode/src/index.ts`, which lets the wrapper start from the repo root for Bun resolution and then restore the caller's original working directory before the CLI runs.
+Use a compiled local binary as the default setup. This keeps normal `opencode` usage independent of Bun at runtime.
 
 1. Install dependencies for the fork:
 
@@ -11,77 +9,38 @@ cd /path/to/opencode
 bun install
 ```
 
-2. Back up your currently installed binary:
+2. Build and install the current-platform binary from this checkout:
 
 ```bash
-mv ~/.opencode/bin/opencode ~/.opencode/bin/opencode.upstream
+bun run install:local-binary
 ```
 
-3. Replace `~/.opencode/bin/opencode` with this wrapper:
+This command:
 
-```sh
-#!/bin/sh
+- builds the current-platform executable from `packages/opencode`
+- installs it to `~/.opencode/bin/opencode`
+- overwrites any existing wrapper script or prior local binary at that path
 
-if [ "${OPENCODE_USE_UPSTREAM:-}" = "1" ]; then
-  exec "$HOME/.opencode/bin/opencode.upstream" "$@"
-fi
-
-if ! command -v bun >/dev/null 2>&1; then
-  echo "opencode: bun is required to run the local dev fork" >&2
-  exit 1
-fi
-
-if [ ! -f /path/to/opencode/packages/opencode/src/index.ts ]; then
-  echo "opencode: local fork entrypoint not found at /path/to/opencode/packages/opencode/src/index.ts" >&2
-  exit 1
-fi
-
-cwd="${PWD:-$(pwd)}"
-
-cd /path/to/opencode || exit 1
-
-if [ "$#" -eq 0 ]; then
-  exec env OPENCODE_CWD="$cwd" bun run dev
-fi
-
-exec env OPENCODE_CWD="$cwd" bun run dev -- "$@"
-```
-
-4. Make it executable:
+3. After changing source code in this fork, rebuild and reinstall:
 
 ```bash
-chmod +x ~/.opencode/bin/opencode
+bun run install:local-binary
 ```
 
-After this, running `opencode` anywhere will launch this local checkout's `bun run dev`.
-
-Useful notes:
-
-- No rebuild is required for normal development. Edit code, then run `opencode` again.
-- `OPENCODE_USE_UPSTREAM=1 opencode ...` bypasses the wrapper and runs the original installed binary.
-- This wrapper assumes your shell already has `~/.opencode/bin` in `PATH`.
-
-To roll back:
+If you need a baseline x64 build:
 
 ```bash
-rm ~/.opencode/bin/opencode
-mv ~/.opencode/bin/opencode.upstream ~/.opencode/bin/opencode
+bun run install:local-binary -- --baseline
 ```
 
-If you want to build a fresh native binary from this fork instead of using the wrapper:
+If you previously saved the upstream installed binary as `~/.opencode/bin/opencode.upstream`, you can roll back manually:
 
 ```bash
-cd packages/opencode
-bun run build -- --single
+cp ~/.opencode/bin/opencode.upstream ~/.opencode/bin/opencode
+chmod 755 ~/.opencode/bin/opencode
 ```
 
-That writes a platform-specific binary to `packages/opencode/dist/<target>/bin/opencode`.
+Legacy fallback:
 
-To install that compiled binary:
-
-```bash
-cd /path/to/opencode
-./install --binary /path/to/opencode/packages/opencode/dist/<target>/bin/opencode --no-modify-path
-```
-
-Installing a compiled binary this way overwrites the wrapper, so use one workflow or the other.
+- The older wrapper-based `bun dev` setup should only be used as a temporary local override.
+- The primary supported setup for this fork is the compiled local binary flow above.
