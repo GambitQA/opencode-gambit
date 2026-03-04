@@ -16,14 +16,13 @@ import { createResizeObserver } from "@solid-primitives/resize-observer"
 import { useLocal } from "@/context/local"
 import { selectionFromLines, useFile, type FileSelection, type SelectedLineRange } from "@/context/file"
 import { createStore } from "solid-js/store"
-import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
 import { Select } from "@opencode-ai/ui/select"
 import { createAutoScroll } from "@opencode-ai/ui/hooks"
 import { Mark } from "@opencode-ai/ui/logo"
 
 import { useSync } from "@/context/sync"
 import { useLayout } from "@/context/layout"
-import { checksum, base64Encode } from "@opencode-ai/util/encode"
+import { base64Encode } from "@opencode-ai/util/encode"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useLanguage } from "@/context/language"
 import { useNavigate, useParams } from "@solidjs/router"
@@ -41,7 +40,6 @@ import { MessageTimeline } from "@/pages/session/message-timeline"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
 import { SessionComposerRegion, createSessionComposerState } from "@/pages/session/composer"
 import { SessionMobileTabs } from "@/pages/session/session-mobile-tabs"
-import { SessionSidePanel } from "@/pages/session/session-side-panel"
 import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
 
 const emptyUserMessages: UserMessage[] = []
@@ -320,15 +318,7 @@ export default function Page() {
   )
 
   const isDesktop = createMediaQuery("(min-width: 768px)")
-  const desktopReviewOpen = createMemo(() => isDesktop() && view().reviewPanel.opened())
-  const desktopFileTreeOpen = createMemo(() => isDesktop() && layout.fileTree.opened())
-  const desktopSidePanelOpen = createMemo(() => desktopReviewOpen() || desktopFileTreeOpen())
-  const sessionPanelWidth = createMemo(() => {
-    if (!desktopSidePanelOpen()) return "100%"
-    if (desktopReviewOpen()) return `${layout.session.width()}px`
-    return `calc(100% - ${layout.fileTree.width()}px)`
-  })
-  const centered = createMemo(() => isDesktop() && !desktopReviewOpen())
+  const centered = createMemo(() => isDesktop())
 
   function normalizeTab(tab: string) {
     if (!tab.startsWith("file://")) return tab
@@ -345,10 +335,6 @@ export default function Page() {
       next.push(value)
     }
     return next
-  }
-
-  const openReviewPanel = () => {
-    if (!view().reviewPanel.opened()) view().reviewPanel.open()
   }
 
   createEffect(() => {
@@ -671,7 +657,6 @@ export default function Page() {
 
   const [tree, setTree] = createStore({
     reviewScroll: undefined as HTMLDivElement | undefined,
-    pendingDiff: undefined as string | undefined,
     activeDiff: undefined as string | undefined,
   })
 
@@ -679,7 +664,7 @@ export default function Page() {
     on(
       sessionKey,
       () => {
-        setTree({ reviewScroll: undefined, pendingDiff: undefined, activeDiff: undefined })
+        setTree({ reviewScroll: undefined, activeDiff: undefined })
       },
       { defer: true },
     ),
@@ -818,19 +803,6 @@ export default function Page() {
     </Show>
   )
 
-  const reviewPanel = () => (
-    <div class="flex flex-col h-full overflow-hidden bg-background-stronger contain-strict">
-      <div class="relative pt-2 flex-1 min-h-0 overflow-hidden">
-        {reviewContent({
-          diffStyle: layout.review.diffStyle(),
-          onDiffStyleChange: layout.review.setDiffStyle,
-          loadingClass: "px-6 py-4 text-text-weak",
-          emptyClass: "h-full pb-30 flex flex-col items-center justify-center text-center gap-6",
-        })}
-      </div>
-    </div>
-  )
-
   createEffect(
     on(
       () => tabs().active(),
@@ -843,88 +815,6 @@ export default function Page() {
       { defer: true },
     ),
   )
-
-  const reviewDiffId = (path: string) => {
-    const sum = checksum(path)
-    if (!sum) return
-    return `session-review-diff-${sum}`
-  }
-
-  const reviewDiffTop = (path: string) => {
-    const root = tree.reviewScroll
-    if (!root) return
-
-    const id = reviewDiffId(path)
-    if (!id) return
-
-    const el = document.getElementById(id)
-    if (!(el instanceof HTMLElement)) return
-    if (!root.contains(el)) return
-
-    const a = el.getBoundingClientRect()
-    const b = root.getBoundingClientRect()
-    return a.top - b.top + root.scrollTop
-  }
-
-  const scrollToReviewDiff = (path: string) => {
-    const root = tree.reviewScroll
-    if (!root) return false
-
-    const top = reviewDiffTop(path)
-    if (top === undefined) return false
-
-    view().setScroll("review", { x: root.scrollLeft, y: top })
-    root.scrollTo({ top, behavior: "auto" })
-    return true
-  }
-
-  const focusReviewDiff = (path: string) => {
-    openReviewPanel()
-    const current = view().review.open() ?? []
-    if (!current.includes(path)) view().review.setOpen([...current, path])
-    setTree({ activeDiff: path, pendingDiff: path })
-  }
-
-  createEffect(() => {
-    const pending = tree.pendingDiff
-    if (!pending) return
-    if (!tree.reviewScroll) return
-    if (!diffsReady()) return
-
-    const attempt = (count: number) => {
-      if (tree.pendingDiff !== pending) return
-      if (count > 60) {
-        setTree("pendingDiff", undefined)
-        return
-      }
-
-      const root = tree.reviewScroll
-      if (!root) {
-        requestAnimationFrame(() => attempt(count + 1))
-        return
-      }
-
-      if (!scrollToReviewDiff(pending)) {
-        requestAnimationFrame(() => attempt(count + 1))
-        return
-      }
-
-      const top = reviewDiffTop(pending)
-      if (top === undefined) {
-        requestAnimationFrame(() => attempt(count + 1))
-        return
-      }
-
-      if (Math.abs(root.scrollTop - top) <= 1) {
-        setTree("pendingDiff", undefined)
-        return
-      }
-
-      requestAnimationFrame(() => attempt(count + 1))
-    }
-
-    requestAnimationFrame(() => attempt(0))
-  })
 
   const activeTab = createMemo(() => {
     const active = tabs().active()
@@ -970,9 +860,7 @@ export default function Page() {
     const id = params.id
     if (!id) return
 
-    const wants = isDesktop()
-      ? desktopFileTreeOpen() || (desktopReviewOpen() && activeTab() === "review")
-      : store.mobileTab === "changes"
+    const wants = !isDesktop() && store.mobileTab === "changes"
     if (!wants) return
     if (sync.data.session_diff[id] !== undefined) return
     if (sync.status === "loading") return
@@ -1176,10 +1064,6 @@ export default function Page() {
           classList={{
             "@container relative shrink-0 flex flex-col min-h-0 h-full bg-background-stronger": true,
             "flex-1": true,
-            "md:flex-none": desktopSidePanelOpen(),
-          }}
-          style={{
-            width: sessionPanelWidth(),
           }}
         >
           <div class="flex-1 min-h-0 overflow-hidden">
@@ -1269,19 +1153,7 @@ export default function Page() {
               promptDock = el
             }}
           />
-
-          <Show when={desktopReviewOpen()}>
-            <ResizeHandle
-              direction="horizontal"
-              size={layout.session.width()}
-              min={450}
-              max={typeof window === "undefined" ? 1000 : window.innerWidth * 0.45}
-              onResize={layout.session.resize}
-            />
-          </Show>
         </div>
-
-        <SessionSidePanel reviewPanel={reviewPanel} activeDiff={tree.activeDiff} focusReviewDiff={focusReviewDiff} />
       </div>
 
       <TerminalPanel />
