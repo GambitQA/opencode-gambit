@@ -177,11 +177,11 @@ export const TuiRoutes = lazy(() =>
       "/open-models",
       describeRoute({
         summary: "Open models dialog",
-        description: "Open the model dialog",
+        description: "Report whether the model dialog can be opened",
         operationId: "tui.openModels",
         responses: {
           200: {
-            description: "Model dialog opened successfully",
+            description: "Model dialog availability reported successfully",
             content: {
               "application/json": {
                 schema: resolver(z.boolean()),
@@ -191,10 +191,7 @@ export const TuiRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        await Bus.publish(TuiEvent.CommandExecute, {
-          command: "model.list",
-        })
-        return c.json(true)
+        return c.json(false)
       },
     )
     .post(
