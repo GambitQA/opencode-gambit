@@ -1046,9 +1046,6 @@ export function Session() {
       <box flexDirection="row">
         <box flexGrow={1} paddingBottom={1} paddingTop={1} paddingLeft={2} paddingRight={2} gap={1}>
           <Show when={session()}>
-            <Show when={showHeader() && (!sidebarVisible() || !wide())}>
-              <Header />
-            </Show>
             <scrollbox
               ref={(r) => (scroll = r)}
               viewportOptions={{
@@ -1182,6 +1179,7 @@ export function Session() {
                   toBottom()
                 }}
                 sessionID={route.sessionID}
+                showPlaceholder={messages().length === 0}
               />
             </box>
           </Show>

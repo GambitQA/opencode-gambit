@@ -57,7 +57,7 @@ export type PromptRef = {
 
 const PLACEHOLDERS = ["Fix a TODO in the codebase", "What is the tech stack of this project?", "Fix broken tests"]
 const SHELL_PLACEHOLDERS = ["ls -la", "git status", "pwd"]
-const CHAT_MODEL_LABEL = "Gambit AI"
+const CHAT_MODEL_LABEL = "Gambit" // TODO(Kiron) set it to a proper value
 
 export function Prompt(props: PromptProps) {
   let input: TextareaRenderable
@@ -751,12 +751,12 @@ export function Prompt(props: PromptProps) {
   })
 
   const placeholderText = createMemo(() => {
-    if (props.sessionID) return undefined
+    if (props.sessionID && !props.showPlaceholder) return undefined
     if (store.mode === "shell") {
       const example = SHELL_PLACEHOLDERS[store.placeholder % SHELL_PLACEHOLDERS.length]
       return `Run a command... "${example}"`
     }
-    return `Ask anything... "${PLACEHOLDERS[store.placeholder % PLACEHOLDERS.length]}"`
+    return "Enter your first prompt"
   })
 
   const spinnerDef = createMemo(() => {
@@ -1000,6 +1000,7 @@ export function Prompt(props: PromptProps) {
             <box flexDirection="row" flexShrink={0} paddingTop={1} gap={1}>
               <text fg={highlight()}>
                 {store.mode === "shell" ? "Shell" : Locale.titlecase(local.agent.current().name)}{" "}
+                <span style={{ fg: theme.textMuted }}>(tab to cycle)</span>
               </text>
               <Show when={store.mode === "normal"}>
                 <box flexDirection="row" gap={1}>
@@ -1124,28 +1125,11 @@ export function Prompt(props: PromptProps) {
               </text>
             </box>
           </Show>
-          <Show when={status().type !== "retry"}>
+          <Show when={status().type !== "retry" && store.mode === "shell"}>
             <box gap={2} flexDirection="row">
-              <Switch>
-                <Match when={store.mode === "normal"}>
-                  <Show when={local.model.variant.list().length > 0}>
-                    <text fg={theme.text}>
-                      {keybind.print("variant_cycle")} <span style={{ fg: theme.textMuted }}>variants</span>
-                    </text>
-                  </Show>
-                  <text fg={theme.text}>
-                    {keybind.print("agent_cycle")} <span style={{ fg: theme.textMuted }}>agents</span>
-                  </text>
-                  <text fg={theme.text}>
-                    {keybind.print("command_list")} <span style={{ fg: theme.textMuted }}>commands</span>
-                  </text>
-                </Match>
-                <Match when={store.mode === "shell"}>
-                  <text fg={theme.text}>
-                    esc <span style={{ fg: theme.textMuted }}>exit shell mode</span>
-                  </text>
-                </Match>
-              </Switch>
+              <text fg={theme.text}>
+                esc <span style={{ fg: theme.textMuted }}>exit shell mode</span>
+              </text>
             </box>
           </Show>
         </box>
