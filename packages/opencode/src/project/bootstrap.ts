@@ -12,11 +12,13 @@ import { Log } from "@/util/log"
 import { ShareNext } from "@/share/share-next"
 import { Snapshot } from "../snapshot"
 import { Truncate } from "../tool/truncation"
+import { SessionTranscript } from "@/session/transcript"
 
 export async function InstanceBootstrap() {
   Log.Default.info("bootstrapping", { directory: Instance.directory })
   await Plugin.init()
   ShareNext.init()
+  await SessionTranscript.init()
   Format.init()
   await LSP.init()
   FileWatcher.init()

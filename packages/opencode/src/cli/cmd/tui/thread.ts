@@ -131,6 +131,10 @@ export const TuiThreadCommand = cmd({
       process.on("SIGUSR2", async () => {
         await client.call("reload", undefined)
       })
+      process.on("SIGINT", async () => {
+        await client.call("shutdown", undefined)
+        process.exit(0)
+      })
 
       const prompt = await iife(async () => {
         const piped = !process.stdin.isTTY ? await Bun.stdin.text() : undefined

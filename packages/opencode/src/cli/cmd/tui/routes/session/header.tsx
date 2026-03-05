@@ -123,10 +123,7 @@ export function Header() {
             </box>
           </Match>
           <Match when={true}>
-            <box flexDirection={narrow() ? "column" : "row"} justifyContent="space-between" gap={1}>
-              <Title session={session} />
-              <ContextInfo context={context} cost={cost} />
-            </box>
+            <text fg={theme.text}>I'm Gambit, an AI agent to assist you with your assessment</text>
           </Match>
         </Switch>
       </box>

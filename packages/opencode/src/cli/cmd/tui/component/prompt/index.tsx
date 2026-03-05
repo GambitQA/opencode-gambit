@@ -1006,7 +1006,6 @@ export function Prompt(props: PromptProps) {
                   <text flexShrink={0} fg={keybind.leader ? theme.textMuted : theme.text}>
                     {CHAT_MODEL_LABEL}
                   </text>
-                  <text fg={theme.textMuted}>{local.model.parsed().provider}</text>
                   <Show when={showVariant()}>
                     <text fg={theme.textMuted}>·</text>
                     <text>
