@@ -84,6 +84,8 @@ function reply(messageID: string, sessionID: string, parentID: string, text: str
           status: "completed",
           input: {},
           output: "done",
+          title: "shell",
+          metadata: {},
           time: {
             start: Date.now(),
             end: Date.now(),

@@ -24,15 +24,10 @@ export namespace SessionTranscript {
   }
 
   function text(msg: MessageV2.WithParts) {
-    return msg.parts
-      .filter((part) => {
-        if (part.type !== "text") return false
-        if (msg.info.role === "user") return !part.ignored
-        return true
-      })
-      .map((part) => part.text)
-      .join("")
-      .trim()
+    const parts = msg.parts.filter((part) => part.type === "text")
+    const filtered = msg.info.role === "user" ? parts.filter((part) => !part.ignored) : parts
+
+    return filtered.map((part) => part.text).join("").trim()
   }
 
   export function entry(msg: MessageV2.WithParts) {
