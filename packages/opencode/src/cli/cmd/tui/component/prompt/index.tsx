@@ -1004,7 +1004,7 @@ export function Prompt(props: PromptProps) {
               </text>
               <Show when={store.mode === "normal"}>
                 <box flexDirection="row" gap={1}>
-                  <text flexShrink={0} fg={keybind.leader ? theme.textMuted : theme.text}>
+                  <text flexShrink={0} style={{ fg: "#045932" }}>
                     {CHAT_MODEL_LABEL}
                   </text>
                   <Show when={showVariant()}>

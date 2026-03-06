@@ -1258,27 +1258,8 @@ export namespace Provider {
       }
       for (const item of priority) {
         if (providerID === "amazon-bedrock") {
-          const crossRegionPrefixes = ["global.", "us.", "eu."]
-          const candidates = Object.keys(provider.models).filter((m) => m.includes(item))
-
-          // Model selection priority:
-          // 1. global. prefix (works everywhere)
-          // 2. User's region prefix (us., eu.)
-          // 3. Unprefixed model
-          const globalMatch = candidates.find((m) => m.startsWith("global."))
-          if (globalMatch) return getModel(providerID, globalMatch)
-
-          const region = provider.options?.region
-          if (region) {
-            const regionPrefix = region.split("-")[0]
-            if (regionPrefix === "us" || regionPrefix === "eu") {
-              const regionalMatch = candidates.find((m) => m.startsWith(`${regionPrefix}.`))
-              if (regionalMatch) return getModel(providerID, regionalMatch)
-            }
-          }
-
-          const unprefixed = candidates.find((m) => !crossRegionPrefixes.some((p) => m.startsWith(p)))
-          if (unprefixed) return getModel(providerID, unprefixed)
+          const candidate = pickBedrockModel(provider, item)
+          if (candidate) return getModel(providerID, candidate)
         } else {
           for (const model of Object.keys(provider.models)) {
             if (model.includes(item)) return getModel(providerID, model)
@@ -1294,6 +1275,26 @@ export namespace Provider {
     }
 
     return undefined
+  }
+
+  function pickBedrockModel(provider: Info, target: string) {
+    const crossRegionPrefixes = ["global.", "us.", "eu."]
+    const candidates = Object.keys(provider.models).filter((x) => x.includes(target))
+    if (!candidates.length) return
+
+    const globalMatch = candidates.find((x) => x.startsWith("global."))
+    if (globalMatch) return globalMatch
+
+    const region = provider.options?.region
+    if (region) {
+      const regionPrefix = region.split("-")[0]
+      if (regionPrefix === "us" || regionPrefix === "eu") {
+        const regionalMatch = candidates.find((x) => x.startsWith(`${regionPrefix}.`))
+        if (regionalMatch) return regionalMatch
+      }
+    }
+
+    return candidates.find((x) => !crossRegionPrefixes.some((prefix) => x.startsWith(prefix))) ?? candidates[0]
   }
 
   const priority = ["gpt-5", "claude-sonnet-4", "gemini-3-pro", "big-pickle"]
@@ -1327,6 +1328,15 @@ export namespace Provider {
       if (!provider) continue
       if (!provider.models[entry.modelID]) continue
       return { providerID: entry.providerID, modelID: entry.modelID }
+    }
+
+    const bedrockProvider = providers["amazon-bedrock"]
+    if (bedrockProvider) {
+      const bedrockPriority = ["claude-haiku-4-5", "claude-haiku-4.5", "3-5-haiku", "3.5-haiku", "claude-haiku"]
+      for (const target of bedrockPriority) {
+        const modelID = pickBedrockModel(bedrockProvider, target)
+        if (modelID) return { providerID: bedrockProvider.id, modelID }
+      }
     }
 
     const provider = Object.values(providers).find((p) => !cfg.provider || Object.keys(cfg.provider).includes(p.id))
