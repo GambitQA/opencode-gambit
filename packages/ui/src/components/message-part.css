@@ -1,4 +1,6 @@
 [data-component="assistant-message"] {
+  --font-family-sans: "IBM Plex Mono", "IBM Plex Mono Fallback";
+  --font-family-sans--font-feature-settings: "ss01" 1;
   content-visibility: auto;
   width: 100%;
   display: flex;
@@ -8,6 +10,8 @@
 }
 
 [data-component="user-message"] {
+  --font-family-sans: "IBM Plex Mono", "IBM Plex Mono Fallback";
+  --font-family-sans--font-feature-settings: "ss01" 1;
   font-family: var(--font-family-sans);
   font-size: var(--font-size-base);
   font-style: normal;
