@@ -1296,7 +1296,7 @@ export namespace Provider {
     return undefined
   }
 
-  const priority = ["gpt-5", "claude-sonnet-4", "big-pickle", "gemini-3-pro"]
+  const priority = ["gpt-5", "claude-sonnet-4", "gemini-3-pro", "big-pickle"]
   export function sort(models: Model[]) {
     return sortBy(
       models,
@@ -1311,6 +1311,12 @@ export namespace Provider {
     if (cfg.model) return parseModel(cfg.model)
 
     const providers = await list()
+
+    const opencodeProvider = providers["opencode"]
+    if (opencodeProvider?.models["big-pickle"]) {
+      return { providerID: "opencode", modelID: "big-pickle" }
+    }
+
     const recent = (await Filesystem.readJson<{ recent?: { providerID: string; modelID: string }[] }>(
       path.join(Global.Path.state, "model.json"),
     )
