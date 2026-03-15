@@ -1,6 +1,8 @@
 import type { AssistantMessage, Part, UserMessage } from "@opencode-ai/sdk/v2"
 import { Locale } from "@/util/locale"
 
+const displayAgent = (name: string) => (name === "build" ? "Edit" : Locale.titlecase(name))
+
 export type TranscriptOptions = {
   thinking: boolean
   toolDetails: boolean
@@ -64,7 +66,7 @@ export function formatAssistantHeader(msg: AssistantMessage, includeMetadata: bo
   const duration =
     msg.time.completed && msg.time.created ? ((msg.time.completed - msg.time.created) / 1000).toFixed(1) + "s" : ""
 
-  return `## Assistant (${Locale.titlecase(msg.agent)} · ${msg.modelID}${duration ? ` · ${duration}` : ""})\n\n`
+  return `## Assistant (${displayAgent(msg.agent)} · ${msg.modelID}${duration ? ` · ${duration}` : ""})\n\n`
 }
 
 export function formatPart(part: Part, options: TranscriptOptions): string {

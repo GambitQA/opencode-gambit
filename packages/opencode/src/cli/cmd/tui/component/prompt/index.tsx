@@ -58,6 +58,7 @@ export type PromptRef = {
 const PLACEHOLDERS = ["Fix a TODO in the codebase", "What is the tech stack of this project?", "Fix broken tests"]
 const SHELL_PLACEHOLDERS = ["ls -la", "git status", "pwd"]
 const CHAT_MODEL_LABEL = "Gambit" // TODO(Kiron) set it to a proper value
+const displayAgent = (name: string) => (name === "build" ? "Edit" : Locale.titlecase(name))
 
 export function Prompt(props: PromptProps) {
   let input: TextareaRenderable
@@ -999,7 +1000,7 @@ export function Prompt(props: PromptProps) {
             />
             <box flexDirection="row" flexShrink={0} paddingTop={1} gap={1}>
               <text fg={highlight()}>
-                {store.mode === "shell" ? "Shell" : Locale.titlecase(local.agent.current().name)}{" "}
+                {store.mode === "shell" ? "Shell" : displayAgent(local.agent.current().name)}{" "}
                 <span style={{ fg: theme.textMuted }}>(tab to cycle)</span>
               </text>
               <Show when={store.mode === "normal"}>

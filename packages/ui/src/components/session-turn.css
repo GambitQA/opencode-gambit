@@ -1,4 +1,6 @@
 [data-component="session-turn"] {
+  --font-family-sans: "IBM Plex Mono", "IBM Plex Mono Fallback";
+  --font-family-sans--font-feature-settings: "ss01" 1;
   --sticky-header-height: calc(var(--session-title-height, 0px) + 24px);
   height: 100%;
   min-height: 0;

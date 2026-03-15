@@ -54,6 +54,7 @@ import { ToolStatusTitle } from "./tool-status-title"
 import { animate } from "motion"
 
 const CHAT_MODEL_LABEL = "Gambit AI"
+const displayAgent = (name?: string) => (!name ? "" : name === "build" ? "Edit" : name[0]?.toUpperCase() + name.slice(1))
 
 function ShellSubmessage(props: { text: string; animate?: boolean }) {
   let widthRef: HTMLSpanElement | undefined
@@ -852,7 +853,7 @@ export function UserMessageDisplay(props: {
 
   const metaHead = createMemo(() => {
     const agent = props.message.agent
-    const items = [agent ? agent[0]?.toUpperCase() + agent.slice(1) : "", model()]
+    const items = [displayAgent(agent), model()]
     return items.filter((x) => !!x).join("\u00A0\u00B7\u00A0")
   })
 
@@ -1214,7 +1215,7 @@ PART_MAPPING["text"] = function TextPartDisplay(props) {
     if (props.message.role !== "assistant") return ""
     const agent = (props.message as AssistantMessage).agent
     const items = [
-      agent ? agent[0]?.toUpperCase() + agent.slice(1) : "",
+      displayAgent(agent),
       model(),
       duration(),
       interrupted() ? i18n.t("ui.message.interrupted") : "",
