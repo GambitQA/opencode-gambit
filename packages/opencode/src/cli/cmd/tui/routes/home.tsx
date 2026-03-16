@@ -3,7 +3,6 @@ import { createMemo, Match, onMount, Show, Switch } from "solid-js"
 import { useTheme } from "@tui/context/theme"
 import { useKeybind } from "@tui/context/keybind"
 import { Logo } from "../component/logo"
-import { Tips } from "../component/tips"
 import { Locale } from "@/util/locale"
 import { useSync } from "../context/sync"
 import { Toast } from "../ui/toast"
@@ -12,19 +11,15 @@ import { useDirectory } from "../context/directory"
 import { useRouteData } from "@tui/context/route"
 import { usePromptRef } from "../context/prompt"
 import { Installation } from "@/installation"
-import { useKV } from "../context/kv"
-import { useCommandDialog } from "../component/dialog-command"
 
 // TODO: what is the best way to do this?
 let once = false
 
 export function Home() {
   const sync = useSync()
-  const kv = useKV()
   const { theme } = useTheme()
   const route = useRouteData("home")
   const promptRef = usePromptRef()
-  const command = useCommandDialog()
   const mcp = createMemo(() => Object.keys(sync.data.mcp).length > 0)
   const mcpError = createMemo(() => {
     return Object.values(sync.data.mcp).some((x) => x.status === "failed")
@@ -33,27 +28,6 @@ export function Home() {
   const connectedMcpCount = createMemo(() => {
     return Object.values(sync.data.mcp).filter((x) => x.status === "connected").length
   })
-
-  const isFirstTimeUser = createMemo(() => sync.data.session.length === 0)
-  const tipsHidden = createMemo(() => kv.get("tips_hidden", false))
-  const showTips = createMemo(() => {
-    // Don't show tips for first-time users
-    if (isFirstTimeUser()) return false
-    return !tipsHidden()
-  })
-
-  command.register(() => [
-    {
-      title: tipsHidden() ? "Show tips" : "Hide tips",
-      value: "tips.toggle",
-      keybind: "tips_toggle",
-      category: "System",
-      onSelect: (dialog) => {
-        kv.set("tips_hidden", !tipsHidden())
-        dialog.clear()
-      },
-    },
-  ])
 
   const Hint = (
     <Show when={connectedMcpCount() > 0}>
@@ -99,7 +73,13 @@ export function Home() {
         <box flexShrink={0}>
           <Logo />
         </box>
-        <box height={1} minHeight={0} flexShrink={1} />
+        <box height={2} minHeight={0} flexShrink={1} />
+        <box width="100%" maxWidth={75} alignItems="center" flexShrink={0}>
+          <text fg={theme.textMuted}>
+            This is a coding agent can inspect code, propose fixes, and edit your workspace for you using natural
+            language.
+          </text>
+        </box>
         <box width="100%" maxWidth={75} zIndex={1000} paddingTop={1} flexShrink={0}>
           <Prompt
             ref={(r) => {
@@ -109,10 +89,22 @@ export function Home() {
             hint={Hint}
           />
         </box>
-        <box height={4} minHeight={0} width="100%" maxWidth={75} alignItems="center" paddingTop={3} flexShrink={1}>
-          <Show when={showTips()}>
-            <Tips />
-          </Show>
+        <box
+          height={7}
+          minHeight={0}
+          width="100%"
+          maxWidth={75}
+          paddingTop={3}
+          flexDirection="column"
+          gap={1}
+          flexShrink={1}
+        >
+          <text fg={theme.textMuted}>
+            <span style={{ fg: theme.text }}>• Plan mode:</span> review and plan without changing files.
+          </text>
+          <text fg={theme.textMuted}>
+            <span style={{ fg: theme.text }}>• Edit mode:</span> make changes and run commands in your workspace.
+          </text>
         </box>
         <box flexGrow={1} minHeight={0} />
         <Toast />
