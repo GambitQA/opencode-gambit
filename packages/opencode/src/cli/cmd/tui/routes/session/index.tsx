@@ -201,16 +201,12 @@ export function Session() {
   const toast = useToast()
   const sdk = useSDK()
 
-  function hydratePrompt(next: PromptRef) {
-    if (!route.initialPrompt) {
-      next.reset()
-      return
+  // Handle initial prompt from fork
+  createEffect(() => {
+    if (route.initialPrompt && prompt) {
+      prompt.set(route.initialPrompt)
     }
-
-    next.set(route.initialPrompt)
-    if (!route.submit) return
-    setTimeout(() => next.submit(), 0)
-  }
+  })
 
   let lastSwitch: string | undefined = undefined
   sdk.event.on("message.part.updated", (evt) => {
@@ -1015,16 +1011,6 @@ export function Session() {
 
   // snap to bottom when session changes
   createEffect(on(() => route.sessionID, toBottom))
-  createEffect(
-    on(
-      () => route.sessionID,
-      () => {
-        if (!prompt) return
-        hydratePrompt(prompt)
-      },
-      { defer: true },
-    ),
-  )
 
   return (
     <context.Provider
@@ -1172,7 +1158,10 @@ export function Session() {
                 ref={(r) => {
                   prompt = r
                   promptRef.set(r)
-                  hydratePrompt(r)
+                  // Apply initial prompt when prompt component mounts (e.g., from fork)
+                  if (route.initialPrompt) {
+                    r.set(route.initialPrompt)
+                  }
                 }}
                 disabled={permissions().length > 0 || questions().length > 0}
                 onSubmit={() => {

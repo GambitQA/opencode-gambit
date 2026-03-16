@@ -11,7 +11,6 @@ export type SessionRoute = {
   type: "session"
   sessionID: string
   initialPrompt?: PromptInfo
-  submit?: boolean
 }
 
 export type Route = HomeRoute | SessionRoute
