@@ -77,10 +77,18 @@ export function Home() {
         <box width="100%" maxWidth={75} alignItems="center" flexShrink={0}>
           <text fg={theme.textMuted}>
             This is a coding agent can inspect code, propose fixes, and edit your workspace for you using natural
-            language.
+            language. The agent has two modes:
           </text>
         </box>
-        <box width="100%" maxWidth={75} zIndex={1000} paddingTop={1} flexShrink={0}>
+        <box width="100%" maxWidth={75} paddingTop={1} flexDirection="column" flexShrink={0}>
+          <text fg={theme.textMuted}>
+            <span>• Plan mode -</span> review and plan without modifying files
+          </text>
+          <text fg={theme.textMuted}>
+            <span>• Edit mode -</span> modify files and run commands
+          </text>
+        </box>
+        <box width="100%" maxWidth={75} zIndex={1000} paddingTop={3} flexShrink={0}>
           <Prompt
             ref={(r) => {
               prompt = r
@@ -88,23 +96,6 @@ export function Home() {
             }}
             hint={Hint}
           />
-        </box>
-        <box
-          height={7}
-          minHeight={0}
-          width="100%"
-          maxWidth={75}
-          paddingTop={3}
-          flexDirection="column"
-          gap={1}
-          flexShrink={1}
-        >
-          <text fg={theme.textMuted}>
-            <span style={{ fg: theme.text }}>• Plan mode:</span> review and plan without changing files.
-          </text>
-          <text fg={theme.textMuted}>
-            <span style={{ fg: theme.text }}>• Edit mode:</span> make changes and run commands in your workspace.
-          </text>
         </box>
         <box flexGrow={1} minHeight={0} />
         <Toast />
