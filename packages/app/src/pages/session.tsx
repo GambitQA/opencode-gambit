@@ -14,11 +14,9 @@ import {
 import { createMediaQuery } from "@solid-primitives/media"
 import { createResizeObserver } from "@solid-primitives/resize-observer"
 import { useLocal } from "@/context/local"
-import { selectionFromLines, useFile, type FileSelection, type SelectedLineRange } from "@/context/file"
+import { useFile } from "@/context/file"
 import { createStore } from "solid-js/store"
-import { Select } from "@opencode-ai/ui/select"
 import { createAutoScroll } from "@opencode-ai/ui/hooks"
-import { Mark } from "@opencode-ai/ui/logo"
 
 import { useSync } from "@/context/sync"
 import { useLayout } from "@/context/layout"
@@ -30,16 +28,12 @@ import { UserMessage } from "@opencode-ai/sdk/v2"
 import { useSDK } from "@/context/sdk"
 import { usePrompt } from "@/context/prompt"
 import { useComments } from "@/context/comments"
-import { SessionHeader, NewSessionView } from "@/components/session"
+import { NewSessionView } from "@/components/session"
 import { same } from "@/utils/same"
-import { createOpenReviewFile } from "@/pages/session/helpers"
 import { createScrollSpy } from "@/pages/session/scroll-spy"
-import { SessionReviewTab, type DiffStyle, type SessionReviewTabProps } from "@/pages/session/review-tab"
-import { TerminalPanel } from "@/pages/session/terminal-panel"
 import { MessageTimeline } from "@/pages/session/message-timeline"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
 import { SessionComposerRegion, createSessionComposerState } from "@/pages/session/composer"
-import { SessionMobileTabs } from "@/pages/session/session-mobile-tabs"
 import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
 
 const emptyUserMessages: UserMessage[] = []
@@ -276,79 +270,10 @@ export default function Page() {
   const composer = createSessionComposerState()
 
   const sessionKey = createMemo(() => `${params.dir}${params.id ? "/" + params.id : ""}`)
-  const workspaceKey = createMemo(() => params.dir ?? "")
-  const workspaceTabs = createMemo(() => layout.tabs(workspaceKey))
-  const tabs = createMemo(() => layout.tabs(sessionKey))
-  const view = createMemo(() => layout.view(sessionKey))
-
-  createEffect(
-    on(
-      () => params.id,
-      (id, prev) => {
-        if (!id) return
-        if (prev) return
-
-        const pending = layout.handoff.tabs()
-        if (!pending) return
-        if (Date.now() - pending.at > 60_000) {
-          layout.handoff.clearTabs()
-          return
-        }
-
-        if (pending.id !== id) return
-        layout.handoff.clearTabs()
-        if (pending.dir !== (params.dir ?? "")) return
-
-        const from = workspaceTabs().tabs()
-        if (from.all.length === 0 && !from.active) return
-
-        const current = tabs().tabs()
-        if (current.all.length > 0 || current.active) return
-
-        const all = normalizeTabs(from.all)
-        const active = from.active ? normalizeTab(from.active) : undefined
-        tabs().setAll(all)
-        tabs().setActive(active && all.includes(active) ? active : all[0])
-
-        workspaceTabs().setAll([])
-        workspaceTabs().setActive(undefined)
-      },
-      { defer: true },
-    ),
-  )
-
   const isDesktop = createMediaQuery("(min-width: 768px)")
   const centered = createMemo(() => isDesktop())
 
-  function normalizeTab(tab: string) {
-    if (!tab.startsWith("file://")) return tab
-    return file.tab(tab)
-  }
-
-  function normalizeTabs(list: string[]) {
-    const seen = new Set<string>()
-    const next: string[] = []
-    for (const item of list) {
-      const value = normalizeTab(item)
-      if (seen.has(value)) continue
-      seen.add(value)
-      next.push(value)
-    }
-    return next
-  }
-
-  createEffect(() => {
-    const active = tabs().active()
-    if (!active) return
-
-    const path = file.pathFromTab(active)
-    if (path) file.load(path)
-  })
-
   const info = createMemo(() => (params.id ? sync.session.get(params.id) : undefined))
-  const diffs = createMemo(() => (params.id ? (sync.data.session_diff[params.id] ?? []) : []))
-  const reviewCount = createMemo(() => Math.max(info()?.summary?.files ?? 0, diffs().length))
-  const hasReview = createMemo(() => reviewCount() > 0)
   const revertMessageID = createMemo(() => info()?.revert?.messageID)
   const messages = createMemo(() => (params.id ? (sync.data.message[params.id] ?? []) : []))
   const messagesReady = createMemo(() => {
@@ -399,8 +324,6 @@ export default function Page() {
 
   const [store, setStore] = createStore({
     messageId: undefined as string | undefined,
-    mobileTab: "session" as "session" | "changes",
-    changes: "session" as "session" | "turn",
     newSessionWorktree: "main",
     deferRender: false,
   })
@@ -415,9 +338,6 @@ export default function Page() {
     }
     return key
   }, sessionKey())
-
-  const turnDiffs = createMemo(() => lastUserMessage()?.summary?.diffs ?? [])
-  const reviewDiffs = createMemo(() => (store.changes === "session" ? diffs() : turnDiffs()))
 
   const newSessionWorktree = createMemo(() => {
     if (store.newSessionWorktree === "create") return "create"
@@ -454,17 +374,18 @@ export default function Page() {
     scrollToMessage(msgs[targetIndex], "auto")
   }
 
-  const diffsReady = createMemo(() => {
-    const id = params.id
-    if (!id) return true
-    if (!hasReview()) return true
-    return sync.data.session_diff[id] !== undefined
-  })
-  const reviewEmptyKey = createMemo(() => {
-    const project = sync.project
-    if (!project || project.vcs) return "session.review.empty"
-    return "session.review.noVcs"
-  })
+  const isEditableTarget = (target: EventTarget | null | undefined) => {
+    if (!(target instanceof HTMLElement)) return false
+    return /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target.tagName) || target.isContentEditable
+  }
+
+  const deepActiveElement = () => {
+    let current: Element | null = document.activeElement
+    while (current instanceof HTMLElement && current.shadowRoot?.activeElement) {
+      current = current.shadowRoot.activeElement
+    }
+    return current instanceof HTMLElement ? current : undefined
+  }
 
   let inputRef!: HTMLDivElement
   let promptDock: HTMLDivElement | undefined
@@ -486,6 +407,48 @@ export default function Page() {
   }
 
   const hasScrollGesture = () => Date.now() - ui.scrollGesture < scrollGestureWindowMs
+
+  const handleKeyDown = (event: KeyboardEvent) => {
+    const path = event.composedPath()
+    const target = path.find((item): item is HTMLElement => item instanceof HTMLElement)
+    const activeElement = deepActiveElement()
+
+    const protectedTarget = path.some(
+      (item) => item instanceof HTMLElement && item.closest("[data-prevent-autofocus]") !== null,
+    )
+    if (protectedTarget || isEditableTarget(target)) return
+
+    if (activeElement) {
+      const isProtected = activeElement.closest("[data-prevent-autofocus]")
+      const isInput = isEditableTarget(activeElement)
+      if (isProtected || isInput) return
+    }
+    if (dialog.active) return
+
+    if (activeElement === inputRef) {
+      if (event.key === "Escape") inputRef?.blur()
+      return
+    }
+
+    // Only treat explicit scroll keys as potential "user scroll" gestures.
+    if (event.key === "PageUp" || event.key === "PageDown" || event.key === "Home" || event.key === "End") {
+      markScrollGesture()
+      return
+    }
+
+    if (event.key.length === 1 && event.key !== "Unidentified" && !(event.ctrlKey || event.metaKey)) {
+      if (composer.blocked()) return
+      inputRef?.focus()
+    }
+  }
+
+  const focusInput = () => inputRef?.focus()
+
+  useSessionCommands({
+    navigateMessageByOffset,
+    setActiveMessage,
+    focusInput,
+  })
 
   createEffect(
     on([() => sdk.directory, () => params.id] as const, ([, id]) => {
@@ -514,7 +477,6 @@ export default function Page() {
       sessionKey,
       () => {
         setStore("messageId", undefined)
-        setStore("changes", "session")
       },
       { defer: true },
     ),
@@ -526,372 +488,6 @@ export default function Page() {
       (dir) => {
         if (!dir) return
         setStore("newSessionWorktree", "main")
-      },
-      { defer: true },
-    ),
-  )
-
-  const selectionPreview = (path: string, selection: FileSelection) => {
-    const content = file.get(path)?.content?.content
-    if (!content) return undefined
-    const start = Math.max(1, Math.min(selection.startLine, selection.endLine))
-    const end = Math.max(selection.startLine, selection.endLine)
-    const lines = content.split("\n").slice(start - 1, end)
-    if (lines.length === 0) return undefined
-    return lines.slice(0, 2).join("\n")
-  }
-
-  const addCommentToContext = (input: {
-    file: string
-    selection: SelectedLineRange
-    comment: string
-    preview?: string
-    origin?: "review" | "file"
-  }) => {
-    const selection = selectionFromLines(input.selection)
-    const preview = input.preview ?? selectionPreview(input.file, selection)
-    const saved = comments.add({
-      file: input.file,
-      selection: input.selection,
-      comment: input.comment,
-    })
-    prompt.context.add({
-      type: "file",
-      path: input.file,
-      selection,
-      comment: input.comment,
-      commentID: saved.id,
-      commentOrigin: input.origin,
-      preview,
-    })
-  }
-
-  const updateCommentInContext = (input: {
-    id: string
-    file: string
-    selection: SelectedLineRange
-    comment: string
-    preview?: string
-  }) => {
-    comments.update(input.file, input.id, input.comment)
-    prompt.context.updateComment(input.file, input.id, {
-      comment: input.comment,
-      ...(input.preview ? { preview: input.preview } : {}),
-    })
-  }
-
-  const removeCommentFromContext = (input: { id: string; file: string }) => {
-    comments.remove(input.file, input.id)
-    prompt.context.removeComment(input.file, input.id)
-  }
-
-  const reviewCommentActions = createMemo(() => ({
-    moreLabel: language.t("common.moreOptions"),
-    editLabel: language.t("common.edit"),
-    deleteLabel: language.t("common.delete"),
-    saveLabel: language.t("common.save"),
-  }))
-
-  const isEditableTarget = (target: EventTarget | null | undefined) => {
-    if (!(target instanceof HTMLElement)) return false
-    return /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target.tagName) || target.isContentEditable
-  }
-
-  const deepActiveElement = () => {
-    let current: Element | null = document.activeElement
-    while (current instanceof HTMLElement && current.shadowRoot?.activeElement) {
-      current = current.shadowRoot.activeElement
-    }
-    return current instanceof HTMLElement ? current : undefined
-  }
-
-  const handleKeyDown = (event: KeyboardEvent) => {
-    const path = event.composedPath()
-    const target = path.find((item): item is HTMLElement => item instanceof HTMLElement)
-    const activeElement = deepActiveElement()
-
-    const protectedTarget = path.some(
-      (item) => item instanceof HTMLElement && item.closest("[data-prevent-autofocus]") !== null,
-    )
-    if (protectedTarget || isEditableTarget(target)) return
-
-    if (activeElement) {
-      const isProtected = activeElement.closest("[data-prevent-autofocus]")
-      const isInput = isEditableTarget(activeElement)
-      if (isProtected || isInput) return
-    }
-    if (dialog.active) return
-
-    if (activeElement === inputRef) {
-      if (event.key === "Escape") inputRef?.blur()
-      return
-    }
-
-    // Don't autofocus chat if desktop terminal panel is open
-    if (isDesktop() && view().terminal.opened()) return
-
-    // Only treat explicit scroll keys as potential "user scroll" gestures.
-    if (event.key === "PageUp" || event.key === "PageDown" || event.key === "Home" || event.key === "End") {
-      markScrollGesture()
-      return
-    }
-
-    if (event.key.length === 1 && event.key !== "Unidentified" && !(event.ctrlKey || event.metaKey)) {
-      if (composer.blocked()) return
-      inputRef?.focus()
-    }
-  }
-
-  const contextOpen = createMemo(() => tabs().active() === "context" || tabs().all().includes("context"))
-  const openedTabs = createMemo(() =>
-    tabs()
-      .all()
-      .filter((tab) => tab !== "context" && tab !== "review"),
-  )
-
-  const mobileChanges = createMemo(() => !isDesktop() && store.mobileTab === "changes")
-  const reviewTab = createMemo(() => isDesktop())
-
-  const fileTreeTab = () => layout.fileTree.tab()
-  const setFileTreeTab = (value: "changes" | "all") => layout.fileTree.setTab(value)
-
-  const [tree, setTree] = createStore({
-    reviewScroll: undefined as HTMLDivElement | undefined,
-    activeDiff: undefined as string | undefined,
-  })
-
-  createEffect(
-    on(
-      sessionKey,
-      () => {
-        setTree({ reviewScroll: undefined, activeDiff: undefined })
-      },
-      { defer: true },
-    ),
-  )
-
-  const showAllFiles = () => {
-    if (fileTreeTab() !== "changes") return
-    setFileTreeTab("all")
-  }
-
-  const focusInput = () => inputRef?.focus()
-
-  useSessionCommands({
-    navigateMessageByOffset,
-    setActiveMessage,
-    focusInput,
-  })
-
-  const openReviewFile = createOpenReviewFile({
-    showAllFiles,
-    tabForPath: file.tab,
-    openTab: tabs().open,
-    loadFile: file.load,
-  })
-
-  const changesOptions = ["session", "turn"] as const
-  const changesOptionsList = [...changesOptions]
-
-  const changesTitle = () => (
-    <Select
-      options={changesOptionsList}
-      current={store.changes}
-      label={(option) =>
-        option === "session" ? language.t("ui.sessionReview.title") : language.t("ui.sessionReview.title.lastTurn")
-      }
-      onSelect={(option) => option && setStore("changes", option)}
-      variant="ghost"
-      size="small"
-      valueClass="text-14-medium"
-    />
-  )
-
-  const emptyTurn = () => (
-    <div class="h-full pb-30 flex flex-col items-center justify-center text-center gap-6">
-      <Mark class="w-14 opacity-10" />
-      <div class="text-14-regular text-text-weak max-w-56">{language.t("session.review.noChanges")}</div>
-    </div>
-  )
-
-  const reviewContent = (input: {
-    diffStyle: DiffStyle
-    onDiffStyleChange?: (style: DiffStyle) => void
-    classes?: SessionReviewTabProps["classes"]
-    loadingClass: string
-    emptyClass: string
-  }) => (
-    <Show when={!store.deferRender}>
-      <Switch>
-        <Match when={store.changes === "turn" && !!params.id}>
-          <SessionReviewTab
-            title={changesTitle()}
-            empty={emptyTurn()}
-            diffs={reviewDiffs}
-            view={view}
-            diffStyle={input.diffStyle}
-            onDiffStyleChange={input.onDiffStyleChange}
-            onScrollRef={(el) => setTree("reviewScroll", el)}
-            focusedFile={tree.activeDiff}
-            onLineComment={(comment) => addCommentToContext({ ...comment, origin: "review" })}
-            onLineCommentUpdate={updateCommentInContext}
-            onLineCommentDelete={removeCommentFromContext}
-            lineCommentActions={reviewCommentActions()}
-            comments={comments.all()}
-            focusedComment={comments.focus()}
-            onFocusedCommentChange={comments.setFocus}
-            onViewFile={openReviewFile}
-            classes={input.classes}
-          />
-        </Match>
-        <Match when={hasReview()}>
-          <Show
-            when={diffsReady()}
-            fallback={<div class={input.loadingClass}>{language.t("session.review.loadingChanges")}</div>}
-          >
-            <SessionReviewTab
-              title={changesTitle()}
-              diffs={reviewDiffs}
-              view={view}
-              diffStyle={input.diffStyle}
-              onDiffStyleChange={input.onDiffStyleChange}
-              onScrollRef={(el) => setTree("reviewScroll", el)}
-              focusedFile={tree.activeDiff}
-              onLineComment={(comment) => addCommentToContext({ ...comment, origin: "review" })}
-              onLineCommentUpdate={updateCommentInContext}
-              onLineCommentDelete={removeCommentFromContext}
-              lineCommentActions={reviewCommentActions()}
-              comments={comments.all()}
-              focusedComment={comments.focus()}
-              onFocusedCommentChange={comments.setFocus}
-              onViewFile={openReviewFile}
-              classes={input.classes}
-            />
-          </Show>
-        </Match>
-        <Match when={true}>
-          <SessionReviewTab
-            title={changesTitle()}
-            empty={
-              store.changes === "turn" ? (
-                emptyTurn()
-              ) : (
-                <div class={input.emptyClass}>
-                  <Mark class="w-14 opacity-10" />
-                  <div class="text-14-regular text-text-weak max-w-56">{language.t(reviewEmptyKey())}</div>
-                </div>
-              )
-            }
-            diffs={reviewDiffs}
-            view={view}
-            diffStyle={input.diffStyle}
-            onDiffStyleChange={input.onDiffStyleChange}
-            onScrollRef={(el) => setTree("reviewScroll", el)}
-            focusedFile={tree.activeDiff}
-            onLineComment={(comment) => addCommentToContext({ ...comment, origin: "review" })}
-            onLineCommentUpdate={updateCommentInContext}
-            onLineCommentDelete={removeCommentFromContext}
-            lineCommentActions={reviewCommentActions()}
-            comments={comments.all()}
-            focusedComment={comments.focus()}
-            onFocusedCommentChange={comments.setFocus}
-            onViewFile={openReviewFile}
-            classes={input.classes}
-          />
-        </Match>
-      </Switch>
-    </Show>
-  )
-
-  createEffect(
-    on(
-      () => tabs().active(),
-      (active) => {
-        if (!active) return
-        if (fileTreeTab() !== "changes") return
-        if (!file.pathFromTab(active)) return
-        showAllFiles()
-      },
-      { defer: true },
-    ),
-  )
-
-  const activeTab = createMemo(() => {
-    const active = tabs().active()
-    if (active === "context") return "context"
-    if (active === "review" && reviewTab()) return "review"
-    if (active && file.pathFromTab(active)) return normalizeTab(active)
-
-    const first = openedTabs()[0]
-    if (first) return first
-    if (contextOpen()) return "context"
-    if (reviewTab() && hasReview()) return "review"
-    return "empty"
-  })
-
-  createEffect(() => {
-    if (!layout.ready()) return
-    if (tabs().active()) return
-    if (openedTabs().length === 0 && !contextOpen() && !(reviewTab() && hasReview())) return
-
-    const next = activeTab()
-    if (next === "empty") return
-    tabs().setActive(next)
-  })
-
-  createEffect(
-    on(
-      () => layout.fileTree.opened(),
-      (opened, prev) => {
-        if (prev === undefined) return
-        if (!isDesktop()) return
-
-        if (opened) {
-          const active = tabs().active()
-          const tab = active === "review" || (!active && hasReview()) ? "changes" : "all"
-          layout.fileTree.setTab(tab)
-        }
-      },
-      { defer: true },
-    ),
-  )
-
-  createEffect(() => {
-    const id = params.id
-    if (!id) return
-
-    const wants = !isDesktop() && store.mobileTab === "changes"
-    if (!wants) return
-    if (sync.data.session_diff[id] !== undefined) return
-    if (sync.status === "loading") return
-
-    void sync.session.diff(id)
-  })
-
-  let treeDir: string | undefined
-  createEffect(() => {
-    const dir = sdk.directory
-    if (!isDesktop()) return
-    if (!layout.fileTree.opened()) return
-    if (sync.status === "loading") return
-
-    fileTreeTab()
-    const refresh = treeDir !== dir
-    treeDir = dir
-    void (refresh ? file.tree.refresh("") : file.tree.list(""))
-  })
-
-  createEffect(
-    on(
-      () => sdk.directory,
-      () => {
-        void file.tree.list("")
-
-        const active = tabs().active()
-        if (!active) return
-        const path = file.pathFromTab(active)
-        if (!path) return
-        void file.load(path, { force: true })
       },
       { defer: true },
     ),
@@ -1048,40 +644,15 @@ export default function Page() {
 
   return (
     <div class="relative bg-background-base size-full overflow-hidden flex flex-col">
-      <SessionHeader />
-      <div class="flex-1 min-h-0 flex flex-col md:flex-row">
-        <SessionMobileTabs
-          open={!isDesktop() && !!params.id}
-          mobileTab={store.mobileTab}
-          hasReview={hasReview()}
-          reviewCount={reviewCount()}
-          onSession={() => setStore("mobileTab", "session")}
-          onChanges={() => setStore("mobileTab", "changes")}
-        />
-
-        {/* Session panel */}
-        <div
-          classList={{
-            "@container relative shrink-0 flex flex-col min-h-0 h-full bg-background-stronger": true,
-            "flex-1": true,
-          }}
-        >
+      <div class="flex-1 min-h-0 flex flex-col">
+        <div class="@container relative flex-1 flex flex-col min-h-0 h-full bg-background-stronger">
           <div class="flex-1 min-h-0 overflow-hidden">
             <Switch>
               <Match when={params.id}>
                 <Show when={activeMessage()}>
                   <MessageTimeline
-                    mobileChanges={mobileChanges()}
-                    mobileFallback={reviewContent({
-                      diffStyle: "unified",
-                      classes: {
-                        root: "pb-8",
-                        header: "px-4",
-                        container: "px-4",
-                      },
-                      loadingClass: "px-4 py-4 text-text-weak",
-                      emptyClass: "h-full pb-30 flex flex-col items-center justify-center text-center gap-6",
-                    })}
+                    mobileChanges={false}
+                    mobileFallback={undefined}
                     scroll={ui.scroll}
                     onResumeScroll={resumeScroll}
                     setScrollRef={setScrollRef}
@@ -1155,8 +726,6 @@ export default function Page() {
           />
         </div>
       </div>
-
-      <TerminalPanel />
     </div>
   )
 }

@@ -15,7 +15,6 @@ import { showToast } from "@opencode-ai/ui/toast"
 import { Binary } from "@opencode-ai/util/binary"
 import { getFilename } from "@opencode-ai/util/path"
 import { shouldMarkBoundaryGesture, normalizeWheelDelta } from "@/pages/session/message-gesture"
-import { SessionContextUsage } from "@/components/session-context-usage"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useLanguage } from "@/context/language"
 import { useSettings } from "@/context/settings"
@@ -613,7 +612,6 @@ export function MessageTimeline(props: {
                 <Show when={sessionID()}>
                   {(id) => (
                     <div class="shrink-0 flex items-center gap-3">
-                      <SessionContextUsage placement="bottom" />
                       <DropdownMenu
                         gutter={4}
                         placement="bottom-end"

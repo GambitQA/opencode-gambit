@@ -1,19 +1,13 @@
 import { createMemo } from "solid-js"
 import { useNavigate, useParams } from "@solidjs/router"
 import { useCommand, type CommandOption } from "@/context/command"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useFile, selectionFromLines, type FileSelection, type SelectedLineRange } from "@/context/file"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { useLocal } from "@/context/local"
-import { usePermission } from "@/context/permission"
 import { usePrompt } from "@/context/prompt"
 import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
-import { useTerminal } from "@/context/terminal"
-import { DialogSelectFile } from "@/components/dialog-select-file"
-import { DialogSelectMcp } from "@/components/dialog-select-mcp"
-import { DialogFork } from "@/components/dialog-fork"
 import { showToast } from "@opencode-ai/ui/toast"
 import { findLast } from "@opencode-ai/util/array"
 import { extractPromptFromParts } from "@/utils/prompt"
@@ -35,22 +29,18 @@ const withCategory = (category: string) => {
 
 export const useSessionCommands = (actions: SessionCommandContext) => {
   const command = useCommand()
-  const dialog = useDialog()
   const file = useFile()
   const language = useLanguage()
   const local = useLocal()
-  const permission = usePermission()
   const prompt = usePrompt()
   const sdk = useSDK()
   const sync = useSync()
-  const terminal = useTerminal()
   const layout = useLayout()
   const params = useParams()
   const navigate = useNavigate()
 
   const sessionKey = createMemo(() => `${params.dir}${params.id ? "/" + params.id : ""}`)
   const tabs = createMemo(() => layout.tabs(sessionKey))
-  const view = createMemo(() => layout.view(sessionKey))
   const info = createMemo(() => (params.id ? sync.session.get(params.id) : undefined))
 
   const idle = { type: "idle" as const }
@@ -62,11 +52,6 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
     if (!revert) return userMessages()
     return userMessages().filter((m) => m.id < revert)
   })
-
-  const showAllFiles = () => {
-    if (layout.fileTree.tab() !== "changes") return
-    layout.fileTree.setTab("all")
-  }
 
   const selectionPreview = (path: string, selection: FileSelection) => {
     const content = file.get(path)?.content?.content
@@ -88,14 +73,10 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
   const focusInput = actions.focusInput
 
   const sessionCommand = withCategory(language.t("command.category.session"))
-  const fileCommand = withCategory(language.t("command.category.file"))
   const contextCommand = withCategory(language.t("command.category.context"))
   const viewCommand = withCategory(language.t("command.category.view"))
-  const terminalCommand = withCategory(language.t("command.category.terminal"))
   const modelCommand = withCategory(language.t("command.category.model"))
-  const mcpCommand = withCategory(language.t("command.category.mcp"))
   const agentCommand = withCategory(language.t("command.category.agent"))
-  const permissionsCommand = withCategory(language.t("command.category.permissions"))
 
   const sessionCommands = createMemo(() => [
     sessionCommand({
@@ -104,28 +85,6 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
       keybind: "mod+shift+s",
       slash: "new",
       onSelect: () => navigate(`/${params.dir}/session`),
-    }),
-  ])
-
-  const fileCommands = createMemo(() => [
-    fileCommand({
-      id: "file.open",
-      title: language.t("command.file.open"),
-      description: language.t("palette.search.placeholder"),
-      keybind: "mod+p",
-      slash: "open",
-      onSelect: () => dialog.show(() => <DialogSelectFile onOpenFile={showAllFiles} />),
-    }),
-    fileCommand({
-      id: "tab.close",
-      title: language.t("command.tab.close"),
-      keybind: "mod+w",
-      disabled: !tabs().active(),
-      onSelect: () => {
-        const active = tabs().active()
-        if (!active) return
-        tabs().close(active)
-      },
     }),
   ])
 
@@ -162,39 +121,10 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
 
   const viewCommands = createMemo(() => [
     viewCommand({
-      id: "terminal.toggle",
-      title: language.t("command.terminal.toggle"),
-      keybind: "ctrl+`",
-      slash: "terminal",
-      onSelect: () => view().terminal.toggle(),
-    }),
-    viewCommand({
-      id: "review.toggle",
-      title: language.t("command.review.toggle"),
-      keybind: "mod+shift+r",
-      onSelect: () => view().reviewPanel.toggle(),
-    }),
-    viewCommand({
-      id: "fileTree.toggle",
-      title: language.t("command.fileTree.toggle"),
-      keybind: "mod+\\",
-      onSelect: () => layout.fileTree.toggle(),
-    }),
-    viewCommand({
       id: "input.focus",
       title: language.t("command.input.focus"),
       keybind: "ctrl+l",
       onSelect: () => focusInput(),
-    }),
-    terminalCommand({
-      id: "terminal.new",
-      title: language.t("command.terminal.new"),
-      description: language.t("command.terminal.new.description"),
-      keybind: "ctrl+alt+t",
-      onSelect: () => {
-        if (terminal.all().length > 0) terminal.new()
-        view().terminal.open()
-      },
     }),
   ])
 
@@ -218,14 +148,6 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
   ])
 
   const agentCommands = createMemo(() => [
-    mcpCommand({
-      id: "mcp.toggle",
-      title: language.t("command.mcp.toggle"),
-      description: language.t("command.mcp.toggle.description"),
-      keybind: "mod+;",
-      slash: "mcp",
-      onSelect: () => dialog.show(() => <DialogSelectMcp />),
-    }),
     agentCommand({
       id: "agent.cycle",
       title: language.t("command.agent.cycle"),
@@ -248,31 +170,6 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
       keybind: "shift+mod+d",
       onSelect: () => {
         local.model.variant.cycle()
-      },
-    }),
-  ])
-
-  const permissionCommands = createMemo(() => [
-    permissionsCommand({
-      id: "permissions.autoaccept",
-      title:
-        params.id && permission.isAutoAccepting(params.id, sdk.directory)
-          ? language.t("command.permissions.autoaccept.disable")
-          : language.t("command.permissions.autoaccept.enable"),
-      keybind: "mod+shift+a",
-      disabled: !params.id || !permission.permissionsEnabled(),
-      onSelect: () => {
-        const sessionID = params.id
-        if (!sessionID) return
-        permission.toggleAutoAccept(sessionID, sdk.directory)
-        showToast({
-          title: permission.isAutoAccepting(sessionID, sdk.directory)
-            ? language.t("toast.permissions.autoaccept.on.title")
-            : language.t("toast.permissions.autoaccept.off.title"),
-          description: permission.isAutoAccepting(sessionID, sdk.directory)
-            ? language.t("toast.permissions.autoaccept.on.description")
-            : language.t("toast.permissions.autoaccept.off.description"),
-        })
       },
     }),
   ])
@@ -350,14 +247,6 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
           providerID: model.provider.id,
         })
       },
-    }),
-    sessionCommand({
-      id: "session.fork",
-      title: language.t("command.session.fork"),
-      description: language.t("command.session.fork.description"),
-      slash: "fork",
-      disabled: !params.id || visibleUserMessages().length === 0,
-      onSelect: () => dialog.show(() => <DialogFork />),
     }),
   ])
 
@@ -472,12 +361,10 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
   command.register("session", () =>
     [
       sessionCommands(),
-      fileCommands(),
       contextCommands(),
       viewCommands(),
       messageCommands(),
       agentCommands(),
-      permissionCommands(),
       sessionActionCommands(),
       shareCommands(),
     ].flatMap((x) => x),
