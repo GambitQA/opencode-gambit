@@ -27,12 +27,15 @@ type PromptSubmitInput = {
   info: Accessor<{ id: string } | undefined>
   imageAttachments: Accessor<ImageAttachmentPart[]>
   commentCount: Accessor<number>
+  autoAccept?: Accessor<boolean>
+  mode?: Accessor<string>
   working: Accessor<boolean>
   editor: () => HTMLDivElement | undefined
   queueScroll: () => void
   promptLength: (prompt: Prompt) => number
   addToHistory: (prompt: Prompt) => void
   resetHistoryNavigation: () => void
+  setMode?: () => void
   setPopover: (popover: "at" | "slash" | null) => void
   newSessionWorktree?: Accessor<string | undefined>
   onNewSessionWorktreeReset?: () => void

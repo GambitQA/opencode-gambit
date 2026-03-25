@@ -45,6 +45,7 @@ export default function Layout(props: ParentProps) {
     Persist.global("layout.page", ["layout.page.v1"]),
     createStore({
       lastProjectSession: {} as { [directory: string]: { directory: string; id: string; at: number } },
+      workspaceOrder: {} as { [directory: string]: string[] },
     }),
   )
 
