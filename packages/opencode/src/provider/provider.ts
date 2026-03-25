@@ -1313,11 +1313,6 @@ export namespace Provider {
 
     const providers = await list()
 
-    const opencodeProvider = providers["opencode"]
-    if (opencodeProvider?.models["big-pickle"]) {
-      return { providerID: "opencode", modelID: "big-pickle" }
-    }
-
     const recent = (await Filesystem.readJson<{ recent?: { providerID: string; modelID: string }[] }>(
       path.join(Global.Path.state, "model.json"),
     )
